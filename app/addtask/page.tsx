@@ -3,21 +3,24 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-
 import AppName from "@/components/AppName";
 import Footer from "@/components/Footer";
 import Swal from "sweetalert2";
-
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 export default function Page() {
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [detail, setDetail] = useState("");
   const [iscompleted, setIsCompleted] = useState(false);
   const [imagefile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>("https://ulaodkphbziflpafrbik.supabase.co/storage/v1/object/public/task_bk/sun.png");
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    "https://ulaodkphbziflpafrbik.supabase.co/storage/v1/object/public/task_bk/sun.png",
+  );
 
   // จัดการการเลือกไฟล์รูปภาพ
   const handleImageFileChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
 
@@ -45,19 +48,62 @@ export default function Page() {
   };
 
   // บันทึกข้อมูล TASK
-  const handleSaveTask = () => {
+  const handleSaveTask = async () => {
     // Validate UI
     if (title === "" || detail === "" || imagefile === null) {
       Swal.fire({
-              title: "กรุณากรอกข้อมูลให้ครบ",
-              icon: "error",
-              draggable: true,
-            });
-            return;
+        title: "กรุณากรอกข้อมูลให้ครบ",
+        icon: "error",
+        draggable: true,
+      });
+      return;
     }
     // Upload Image to supabase storage and get image url from bucket
+    // เปลี่ยนชื่อรูป
+    const newFileName = `dtisau_${Date.now()}_${imagefile.name}`;
+    // Upload รูปไปยัง Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from("task_bk")
+      .upload(newFileName, imagefile);
+    if (uploadError) {
+      Swal.fire({
+        title: "เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ",
+        text: uploadError.message,
+        icon: "error",
+        draggable: true,
+      });
+      return;
+    }
 
+    // get image url มาใส่ในตัวแปรเพื่อบันทึกลงตาราง
+    const { data } = supabase.storage.from("task_bk").getPublicUrl(newFileName);
+    const image_url = data.publicUrl;
     // Save data to supabase Database
+    const { error: saveError } = await supabase.from("task_tb").insert({
+      // colums name
+      title: title,
+      detail: detail,
+      iscompleted: iscompleted,
+      image_url: image_url,
+    });
+    if (saveError) {
+      Swal.fire({
+        title: "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+        text: saveError.message,
+        icon: "error",
+        draggable: true,
+      });
+      return;
+    }
+    // ตรวจสอบแล้วว่าไม่มีข้อผิดพลาดในการบันทึกข้อมูล แสดงข้อความแจ้งเตือนบันทึกข้อมูลสำเร็จ และ redirect ไปหน้า /hometask
+    Swal.fire({
+      title: "บันทึกข้อมูลสำเร็จ",
+      icon: "success",
+      draggable: true,
+    }).then(() => {
+      // redirect ไปหน้า /hometask
+      router.push("/hometask");
+    });
   };
 
   return (
@@ -78,14 +124,10 @@ export default function Page() {
 
       {/* Form */}
       <div className="w-[600px] max-w-[90%] border border-gray-300 mx-auto mt-10 rounded-xl px-8 py-10">
-        <h1 className="text-2xl font-bold text-center">
-          เพิ่มข้อมูลงาน
-        </h1>
+        <h1 className="text-2xl font-bold text-center">เพิ่มข้อมูลงาน</h1>
 
         {/* หัวข้องาน */}
-        <h3 className="mt-4 text-gray-700 font-bold">
-          หัวข้องาน
-        </h3>
+        <h3 className="mt-4 text-gray-700 font-bold">หัวข้องาน</h3>
 
         <input
           type="text"
@@ -97,9 +139,7 @@ export default function Page() {
         />
 
         {/* รายละเอียดงาน */}
-        <h3 className="mt-4 text-gray-700 font-bold">
-          รายละเอียดงาน
-        </h3>
+        <h3 className="mt-4 text-gray-700 font-bold">รายละเอียดงาน</h3>
 
         <textarea
           rows={4}
@@ -111,9 +151,7 @@ export default function Page() {
         />
 
         {/* เลือกรูป */}
-        <h3 className="mt-4 text-gray-700 font-bold">
-          เลือกรูป
-        </h3>
+        <h3 className="mt-4 text-gray-700 font-bold">เลือกรูป</h3>
 
         <input
           type="file"
@@ -145,15 +183,11 @@ export default function Page() {
         )}
 
         {/* สถานะ */}
-        <h3 className="mt-4 text-gray-700 font-bold mb-3">
-          สถานะ
-        </h3>
+        <h3 className="mt-4 text-gray-700 font-bold mb-3">สถานะ</h3>
 
         <select
           value={iscompleted ? "1" : "0"}
-          onChange={(e) =>
-            setIsCompleted(e.target.value === "1")
-          }
+          onChange={(e) => setIsCompleted(e.target.value === "1")}
           className="border border-gray-300 rounded-md py-2 px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="1">เสร็จสิ้น</option>
