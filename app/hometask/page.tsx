@@ -8,8 +8,9 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import { useEffect, useState } from "react";
 
+// กำหนดรูปแบบข้อมูลของ Task ที่จะเข้ามาจาก Supabase
 type TaskItem = {
-  id?: number;
+  id?: number | string;
   title: string;
   detail: string;
   iscompleted: boolean | number | string;
@@ -17,9 +18,12 @@ type TaskItem = {
 };
 
 export default function Page() {
+  // เก็บรายการงานทั้งหมดที่โหลดมาจากฐานข้อมูล
   const [tasks, setTasks] = useState<TaskItem[]>([]);
+  // ใช้เพื่อแสดงสถานะกำลังโหลดข้อมูล
   const [loading, setLoading] = useState(true);
 
+  // ดึงข้อมูล task ทั้งหมดจากตาราง task_tb ใน Supabase
   const fetchTasks = async () => {
     try {
       const { data, error } = await supabase.from("task_tb").select("*");
@@ -39,12 +43,14 @@ export default function Page() {
     }
   };
 
+  // เรียกดึงข้อมูลทันทีเมื่อหน้า home โหลดครั้งแรก
   useEffect(() => {
     fetchTasks();
   }, []);
 
-  const handleDeleteTask = async (id: number | undefined) => {
-    if (!id) return;
+  // ฟังก์ชันลบข้อมูล task ตาม id ที่เลือก
+  const handleDeleteTask = async (id: number | string | undefined) => {
+    if (id === undefined || id === null || id === "") return;
 
     const result = await Swal.fire({
       title: "ยืนยันการลบงานนี้หรือไม่",
@@ -80,15 +86,18 @@ export default function Page() {
     await fetchTasks();
   };
 
+  // ตรวจสอบว่าตำแหน่งสถานะเป็นเสร็จสิ้นหรือยัง
   const isDone = (value: boolean | number | string) =>
     value === true || value === 1 || value === "1";
 
   return (
     <div>
+      {/* ส่วนหัวแอปชื่อ */}
       <div className="text-center mt-6">
         <AppName />
       </div>
 
+      {/* โลโก้แอป */}
       <Image
         src="https://ulaodkphbziflpafrbik.supabase.co/storage/v1/object/public/task_bk/task.png"
         alt="Logo"
@@ -97,6 +106,7 @@ export default function Page() {
         className="mx-auto mt-10"
       />
 
+      {/* ปุ่มไปหน้าเพิ่มงาน */}
       <div className="text-center mt-10">
         <Link href="/addtask">
           <span className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded cursor-pointer">
@@ -105,6 +115,7 @@ export default function Page() {
         </Link>
       </div>
 
+      {/* ตารางแสดงรายการ task ทั้งหมด */}
       <div className="w-4/5 mt-10 mx-auto overflow-x-auto">
         <table className="w-full border border-gray-500 rounded-xl bg-gray-100 shadow-md">
           <thead>
@@ -116,6 +127,7 @@ export default function Page() {
               <th className="border border-gray-500 px-4 py-2">ลบ/แก้ไข</th>
             </tr>
           </thead>
+          {/* ส่วนแสดง row ของ task แต่ละรายการ */}
           <tbody>
             {loading ? (
               <tr>
@@ -132,6 +144,7 @@ export default function Page() {
             ) : (
               tasks.map((task) => (
                 <tr key={task.id ?? task.title} className="align-top">
+                  {/* แสดงรูปภาพของ task */}
                   <td className="border border-gray-500 px-4 py-2 text-center">
                     {task.image_url ? (
                       <img
@@ -143,8 +156,11 @@ export default function Page() {
                       <span className="text-gray-400">ไม่มีรูป</span>
                     )}
                   </td>
+                  {/* แสดงหัวข้อ task */}
                   <td className="border border-gray-500 px-4 py-2">{task.title}</td>
+                  {/* แสดงรายละเอียด task */}
                   <td className="border border-gray-500 px-4 py-2">{task.detail}</td>
+                  {/* แสดงสถานะว่าเสร็จหรือยัง */}
                   <td className="border border-gray-500 px-4 py-2">
                     <span
                       className={`inline-block px-2 py-1 rounded text-sm font-medium ${
@@ -156,6 +172,7 @@ export default function Page() {
                       {isDone(task.iscompleted) ? "เสร็จสิ้น" : "ยังไม่เสร็จ"}
                     </span>
                   </td>
+                  {/* ปุ่มแก้ไขและลบสำหรับ task นี้ */}
                   <td className="border border-gray-500 px-4 py-2">
                     <div className="flex flex-col gap-2">
                       <Link
@@ -179,6 +196,7 @@ export default function Page() {
         </table>
       </div>
 
+      {/* ส่วน footer ของหน้า */}
       <Footer />
     </div>
   );
